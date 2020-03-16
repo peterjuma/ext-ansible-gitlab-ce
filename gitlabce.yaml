@@ -12,4 +12,3 @@
       block:
         - name: reboot the server if required
           reboot:
-            reboot_timeout: 3600

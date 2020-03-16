@@ -109,9 +109,6 @@
   template:
     src: gitssl.conf.j2
     dest: /etc/ssl/gitssl.conf
-
-- name: Reconfigure GitLab CE using the updated settings
-  shell: gitlab-ctl reconfigure
   
 - name: Create certificates directory
   file:
