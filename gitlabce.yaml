@@ -1,7 +1,15 @@
 ---
 - hosts: all
   become: yes
-  tasks:
-
+  
   roles:
     - gitlabce
+
+  tasks:
+
+    - name: Check and reboot if required
+      when: updates.stdout_lines | length > 0 and reboot_required.rc != 0
+      block:
+        - name: reboot the server if required
+          reboot:
+            reboot_timeout: 3600

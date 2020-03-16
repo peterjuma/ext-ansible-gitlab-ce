@@ -29,6 +29,11 @@
     warn: false
   register: updates
 
+- name: Install the EPEL YUM repo and then update the system
+  yum: 
+    name: epel-release
+    state: latest 
+
 - name: display count
   debug:
     msg: "Found {{ updates.stdout_lines | length }} packages to be updated:\n\n{{ updates.stdout }}"
