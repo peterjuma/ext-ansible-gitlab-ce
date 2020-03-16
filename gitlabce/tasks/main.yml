@@ -46,12 +46,6 @@
         name: "*"
         state: latest
 
-    - name: check if reboot is required
-      shell: needs-restarting -r
-      failed_when: false
-      register: reboot_required
-      changed_when: false
-
 - name: Install and configure the necessary dependencies
   yum:
     name: "{{ packages }}"
@@ -104,6 +98,9 @@
   yum:
     name: gitlab-ce
     state: latest
+
+- name: Reconfigure GitLab CE using the updated settings
+  shell: gitlab-ctl reconfigure
 
 - name: Copy SSL Key generation configuration file
   template:

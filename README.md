@@ -54,4 +54,6 @@ Change Vagrantfile ansible provisioning configuration
 
 # Accessing GitLab CE 
 
-Access GitLab CE via browser using the IP configured in Vagrantfile
+Access GitLab CE via browser using the IP configured in Vagrantfile (on HTTPS)
+
+https://<host-ip>

@@ -7,6 +7,13 @@
 
   tasks:
 
+    - name: check if reboot is required
+      shell: needs-restarting -r
+      failed_when: false
+      register: reboot_required
+      changed_when: false
+      
+
     - name: Check and reboot if required
       when: updates.stdout_lines | length > 0 and reboot_required.rc != 0
       block:
