@@ -1,0 +1,16 @@
+---
+# handlers file for gitlabce
+
+- name: Restart and enable sshd
+  service:
+    name: sshd
+    state: restarted
+    enabled: yes
+  listen: start_enable_sshd
+  
+- name: Restart and enable sshd
+  service:
+    name: postfix
+    state: started
+    enabled: yes
+  listen: start_enable_postfix   

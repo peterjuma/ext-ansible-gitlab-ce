@@ -1,0 +1,4 @@
+---
+# vars file for gitlabce
+gitlabserverip: 172.28.128.20
+gitlabservehostname: gitlabce.example.com

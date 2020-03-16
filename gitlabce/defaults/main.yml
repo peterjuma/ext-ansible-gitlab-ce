@@ -1,0 +1,4 @@
+---
+# defaults file for gitlabce
+gitlabserverip: 10.10.10.11
+gitlabservehostname: gitlab.example.com

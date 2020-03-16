@@ -1,0 +1,148 @@
+---
+# tasks file for gitlabce
+
+
+- name: Add a swap partition and tweak the swappiness setting
+  shell: |
+    dd if=/dev/zero of=/swapfile count=4096 bs=1M
+    mkswap /swapfile
+    swapon /swapfile
+    echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+
+    
+- name: Set vm.swappiness to 10 in /etc/sysctl.conf
+  sysctl:
+    name: vm.swappiness
+    value: '10'
+    state: present
+
+- name: Add a line to the hosts file
+  lineinfile:
+    path: /etc/hosts
+    line: "{{ gitlabserverip }} {{ gitlabservehostname }} "
+    create: yes 
+
+- name: check packages for updates
+  shell: yum list updates | awk 'f;/Updated Packages/{f=1;}' | awk '{ print $1 }'
+  changed_when: updates.stdout_lines | length > 0
+  args:
+    warn: false
+  register: updates
+
+- name: display count
+  debug:
+    msg: "Found {{ updates.stdout_lines | length }} packages to be updated:\n\n{{ updates.stdout }}"
+
+- name: Update packages that need updates
+  when: updates.stdout_lines | length > 0
+  block:
+    - name: install updates using yum
+      yum:
+        name: "*"
+        state: latest
+
+    - name: check if reboot is required
+      shell: needs-restarting -r
+      failed_when: false
+      register: reboot_required
+      changed_when: false
+
+
+- name: Check and reboot if required
+  when: updates.stdout_lines | length > 0 and reboot_required.rc != 0
+  block:
+    - name: reboot the server if required
+      reboot:
+        reboot_timeout: 3600
+
+- name: wait for server to come back after reboot
+  wait_for_connection:
+    timeout: 300
+    delay: 20
+  delegate_to: localhost
+
+- name: Install and configure the necessary dependencies
+  yum:
+    name: "{{ packages }}"
+    state: latest
+  vars:
+    packages:
+      - policycoreutils-python
+      - openssh-server
+      - openssl
+      - python2-pip
+      - curl
+      - vim
+      - git
+      - yum-utils
+  notify:
+    - start_enable_sshd
+
+- name: Install pyopenssl
+  pip:
+    name: pyopenssl
+    state: present
+  ignore_errors: yes
+   
+- name: Start firewalld
+  service:
+    name: firewalld
+    state: started
+  
+- name: Open HTTP, HTTPS and SSH access in the system firewall
+  firewalld:
+    service: "{{ item }}"
+    state: enabled
+    permanent: yes
+    immediate: yes
+  loop:
+    - http
+    - https
+
+- name: Install Postfix to send notification emails
+  yum:
+    name: postfix
+    state: latest
+  notify:
+    - start_enable_postfix
+
+- name: Add the GitLab package repository and install the package
+  shell: curl -sS https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.rpm.sh | sudo bash
+
+- name: Install the GitLab package
+  yum:
+    name: gitlab-ce
+    state: latest
+
+- name: Copy SSL Key generation configuration file
+  template:
+    src: gitssl.conf.j2
+    dest: /etc/ssl/gitssl.conf
+
+- name: Reconfigure GitLab CE using the updated settings
+  shell: gitlab-ctl reconfigure
+  
+- name: Create certificates directory
+  file:
+    path: /etc/gitlab/trusted-certs/
+    state: directory          
+      
+- name: Generate custom certificates 
+  command: "{{item}}"
+  with_items:
+    - 'openssl genrsa -out /etc/gitlab/trusted-certs/gitlabce.key 2048 -config /etc/ssl/gitssl.conf'
+    - 'openssl req -new -out /etc/gitlab/trusted-certs/gitlabce.csr -key /etc/gitlab/trusted-certs/gitlabce.key -config /etc/ssl/gitssl.conf'
+    - 'openssl x509 -req -days 3650 -in /etc/gitlab/trusted-certs/gitlabce.csr -signkey /etc/gitlab/trusted-certs/gitlabce.key -out /etc/gitlab/trusted-certs/gitlabce.crt'
+
+- name: Cofigure GitLab SSL Certificates
+  replace:
+    path: /etc/gitlab/gitlab.rb
+    regexp: "{{ item.exp }}"
+    replace: "{{ item.rep }}"
+  with_items:
+    - { exp: '^external_url(\s+.*)$', rep: "external_url 'https://{{ gitlabserverip }}'" }
+    - { exp: '(#\s+nginx)(.*)(ssl_certificate.])(\s+.*)$', rep: "nginx['ssl_certificate'] = \"/etc/gitlab/trusted-certs/gitlabce.crt\"" }
+    - { exp: '(#\s+nginx)(.*)(ssl_certificate_key.])(\s+.*)$', rep: "nginx['ssl_certificate_key'] = \"/etc/gitlab/trusted-certs/gitlabce.key\"" }
+
+- name: Reconfigure GitLab CE using the updated settings
+  shell: gitlab-ctl reconfigure
