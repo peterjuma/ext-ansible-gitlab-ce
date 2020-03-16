@@ -18,7 +18,7 @@ Vagrant.configure("2") do |config|
   config.vm.synced_folder "gitlabce/", "#{@ansible_home}/roles/gitlabce", type: 'rsync'
   config.vm.provision "shell", inline: "chown vagrant:vagrant #{@ansible_home}"
 
-  config.vm.provision "ansible" do |ansible|
+  config.vm.provision "ansible_local" do |ansible|
     ansible.playbook = "gitlabce.yaml"
   end
 
